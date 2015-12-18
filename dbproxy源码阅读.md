@@ -192,4 +192,140 @@ struct _cluster {
 typedef struct _cluster cluster;
 ```
 
+**cluster初始化**
 
+```c
+cluster *clus;
+clus = (cluster*) cluster_create()
+
+//cluster_create实现方式
+cluster *c = (cluster*) calloc(1, sizeof(cluster));
+c->master_dbs = g_ptr_array_new()
+c->slave_dbs = g_ptr_array_new()
+c->db_conn_pools = g_hash_table_new(g_str_hash, g_str_equal)
+
+//主要对一些数组以及hashtable创建新的对象
+```
+
+**解析配置文件中的多个cluster**
+
+支持多个cluster:
+
+```c
+clus = (cluster*) cluster_create())
+strncpy(clus->cluster_name, value,MAX_CLUSTER_NAME_LEN)
+g_hash_table_insert(config->clusters, clus->cluster_name, clus);
+
+```
+
+**解析配置文件中的Master_Host**
+
+```c
+strstr(groups[i], CONFIG_DB_MASTER_GROUP_PREFIX)
+
+int init_network_database_by_group(network_server_config *config,
+     GKeyFile *conf_file, gchar *group, int is_slave,
+     int is_read_from_local, int is_update)
+```
+通过参数is\_read\_from_local来判断是否从zookeeper中读取。
+
+对应的配置文件：
+
+```bash
+[Master_Host_1]
+#name                   = tc-dba-cc00.tc 
+cluster_name            = DBA_C_demo
+host                    = 10.1.1.1
+port                    = 3306
+max_connections         = 100 
+connect_timeout         = 200000
+time_reconnect_interval = 30
+reserved_master_connections=100
+weight                  = 1 
+
+```
+上面的配置信息对应的结构体如下:
+
+```c
+/**
+ * @brief 对数据库服务器的封装
+ */
+struct _network_database {
+    /**< 此数据库服务器所从属的集群 */
+    cluster *clus;
+    /**< 此数据库服务器的名字 */                                                                                                                                                 
+    char host_name[MAX_HOST_NAME_LEN];
+    /**< 对应的network_address结构体，封装了地址、端口等信息 */
+    network_address addr;
+    /**< 此数据库服务器允许连接的最大连接数 */
+    guint max_connections;
+    /**< 此数据库服务器允许连接的最小连接数 */
+    guint min_connections;
+    /**< 当此数据库服务器作为master时，如果当前连接数小于此保留数，则不允许其它slave连接占用本master的连接 */
+    guint reserved_master_connections;
+    /**< 配置文件中所属的GROUP */
+    char group_name[MAX_GROUP_LEN];
+    /**< 连接时的超时时间 */
+    int connect_timeout;
+    /**< 失败重连的时间间隔 */
+    int time_reconnect_interval;
+    /**< 上一次失效的时间 */
+    time_t last_fail_time;
+    /**< 当前连接数 */
+    int cur_connected;
+    /**< 标示是主库还是从库 */
+    int ms;
+    /**< 权重 */
+    int weight;
+    /**< 标示是否为旧的数据库服务器 */
+    int is_old;
+    /**< 其所对应的zookeeper路径*/
+    char zk_path[MAX_ZOOKEEPER_PATH_LEN];
+    /**< 此数据库的IP哈希的结果，用于状态查询 */
+    guint key;
+};
+typedef struct _network_database network_database;
+```
+
+**init\_network\_database\_by\_group的实现过程**
+
++ 初始化
+	
+	```c
+	network_database_create
+	db = calloc(1, sizeof(network_database)))
+	```
++  解析配置文件，对network_database *db进行初始化
+	+ IP和 Host单独封装在一个结构体中
+	
+	```c
+		/**
+		 * @brief 对网络地址的封装
+		 */
+		typedef struct {
+		    /**< sockaddr_in结构的地址*/
+		    struct sockaddr_in addr_ip;
+		    /**< ip地址字符串*/
+		    char addr_name[MAX_IP_LEN];
+		    /**< 地址长度*/
+		    int addr_len;
+		    /**< 端口*/
+		    int port;
+		} network_address;
+	```
+	这里面有个套接字结构
+	
+	```c
+	struct sockaddr_in addr_ip;
+	
+	db->addr.addr_ip.sin_port = htons(db->addr.port);
+	db->addr.addr_len = sizeof(db->addr.addr_ip);
+	db->addr.addr_ip.sin_family = AF_INET;
+	inet_aton(value, &(db->addr.addr_ip.sin_addr))
+	```
+	
++  解析配置文件，对network_database *db进行初始化
+
+	```c
+		db->key = str_hash(db->addr.addr_name)
+	```
