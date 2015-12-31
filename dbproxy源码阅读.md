@@ -289,6 +289,9 @@ typedef struct _network_database network_database;
 
 **init\_network\_database\_by\_group的实现过程**
 
+>
+针对MASTER以及SLAVE两个都进行检测
+
 + 初始化
 	
 	```c
@@ -328,4 +331,212 @@ typedef struct _network_database network_database;
 
 	```c
 		db->key = str_hash(db->addr.addr_name)
+		
+		//使用IP作为主键，通过自定义函数，转换为guint
+		
+		
 	```
+
+**init\_db_user**
+>初始化db_user
+
+```bash
+[DB_User_1]
+db_username             = db_user
+db_password             = db_pass 
+default_db              = test
+default_charset         = gbk 
+cluster_name            = DBA_C_demo
+```
+
+```c
+/*认字符编码是gbk_chinses_ci (28) */
+user->default_charset = 28
+
+```
+对密码进行加密：
+
+```c
+user->scramble_len = 21; 
+*(user->scramble_password) = '\x14'; 
+
+scramble( 
+user->scramble_password + 1,
+	"\x2f\x55\x3e\x74\x50\x72\x6d\x4b\x56\x4c\x57\x54\x7c\x34\x2f\x2e\x37\x6b\x37\x6e",
+	user->password);
+```
+
+机密函数：
+
+```c
+void scramble(char *to, const char *message, const char *password) {
+
+  SHA1_CONTEXT sha1_context;
+  uint8 hash_stage1[SHA1_HASH_SIZE];
+  uint8 hash_stage2[SHA1_HASH_SIZE];
+
+  mysql_sha1_reset(&sha1_context);
+  /* stage 1: hash password */
+  mysql_sha1_input(&sha1_context, (uint8 *) password, (uint) strlen(password));
+  mysql_sha1_result(&sha1_context, hash_stage1);
+  /* stage 2: hash stage 1; note that hash_stage2 is stored in the database */
+  mysql_sha1_reset(&sha1_context);
+  mysql_sha1_input(&sha1_context, hash_stage1, SHA1_HASH_SIZE);
+  mysql_sha1_result(&sha1_context, hash_stage2);
+  /* create crypt string as sha1(message, hash_stage2) */;
+  mysql_sha1_reset(&sha1_context);
+  mysql_sha1_input(&sha1_context, (const uint8 *) message, SCRAMBLE_LENGTH);
+  mysql_sha1_input(&sha1_context, hash_stage2, SHA1_HASH_SIZE);
+  /* xor allows 'from' and 'to' overlap: lets take advantage of it */
+  mysql_sha1_result(&sha1_context, (uint8 *) to);
+  my_crypt(to, (const uchar *) to, hash_stage1, SCRAMBLE_LENGTH);
+}
+```
+加密这块再进一步的细节，还得持续研究。
+
+连接DB的字符集
+
+```c
+user->default_charset = 28; /* gbk_chinese_ci */
+user->default_charset = 33;  /* utf8_general_ci */
+user->default_charset = 8;  /* latin1_swedish_ci */
+user->default_charset = 63; /* binary */
+```
+
+**init\_product_user**
+
+```
+[Product_User_1]
+username                = prod_user 
+password                = prod_pass
+db_username             = db_user
+max_connections         = 100 
+
+# Product User prod_user auth ip
+authip_127.0.0.1=127.0.0.1
+```
+
+这里也涉及到密码转义的问题，和DB的密码处理方式一样。
+
+需要按照db_username与上一个函数中产生的user进行对比
+
+```c
+d_user = g_hash_table_lookup(config->db_user, d_user_name)
+```
+
+对授权ip进行处理:
+
+```c
+user->auth_ips = g_ptr_array_new()
+
+auth_ip *ip = NULL;
+ip = calloc(1, sizeof(auth_ip))
+
+inet_aton(value, &(ip->addr))
+
+g_ptr_array_add(user->auth_ips, ip)
+```
+
+**AuthIP结构体**
+
+```c
+/**
+ * @brief 验证IP
+ */
+typedef struct {
+    /**< IP地址*/
+    struct in_addr addr;
+} auth_ip;
+```
+
+**init\_auth_ip**
+
+```
+# [global ip]
+[Auth_IP_localhost]
+ip=127.0.0.1
+[Auth_IP_dba]
+ip=10.23.252.150 
+```
+
+```c
+#define CONFIG_AUTH_IP_IP "ip"
+strncasecmp(CONFIG_AUTH_IP_IP, keys[j], strlen(CONFIG_AUTH_IP_IP))
+ 
+//必须要使ip作为标记
+ 
+ inet_aton(value, &(ip->addr))
+ 
+ //把转换后的ip地址丢到config->auth_ips中
+ g_ptr_array_add(config->auth_ips, ip)
+```
+
+记录配置文件的stat信息
+
+```c
+    struct stat conf_s;
+    if(0 != stat(conf_path,&conf_s)){
+    ¦   printf("read the status of %s failed",conf_path);
+    ¦   return NULL;
+    }    
+    config->conf_modify_time = conf_s.st_mtime;
+```
+
+**截止到现在配置解析的部分已经结束**
+
+####2.4 日志部分，创建日志的结构体
+
+```c
+(logger = logger_create(srv->config->log_dir,
+    srv->config->log_filename, srv->config->log_maxsize,
+    srv->config->log_level))
+```
+
+参数有四个：
+
++ 日志目录
++ 日志名称
++ 日志最大size
++ 日志的Level
+
+对应的logger结构体如下：
+
+```c
+typedef struct{
+
+    unsigned long int  maxsize;
+    char *log_dir;
+    char *log_filename;
+
+    char *log_filepath;
+    char *werror_log_filepath;
+    char *load_log_filepath;
+
+    char *log_filepath_tmp;
+    char *werror_log_filepath_tmp;
+    char *load_log_filepath_tmp;
+
+    ino_t log_inode;
+    ino_t werror_log_inode;
+    ino_t load_log_inode;
+
+    int fd;
+    int werror_fd;
+    int load_fd;
+
+    int log_level;                            
+
+} t_logger;
+t_logger *logger;
+```
+
+日志对应的文件是:
+
+```bash
+log.h
+log.c
+```
+
+
+
+
