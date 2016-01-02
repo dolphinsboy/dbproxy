@@ -1,0 +1,64 @@
+#ifndef _GLOBAL_H_
+#define _GLOBAL_H_
+
+#define RET_LAST_USE_SUCCESS 7
+#define RET_REAL_WRITE 6
+#define RET_HANDSHAKE_ERROR 5
+#define RET_COMMAND_SHUTDOWN 4
+#define RET_AUTH_FAILED 3
+#define RET_SHUTDOWN 2
+#define RET_WAIT_FOR_EVENT 1
+#define RET_SUCCESS 0
+#define RET_ERROR -1
+#define RET_NO_MEMORY -2
+#define RET_DESIGNATED_DB 8
+#define RET_PROXY_STATUS 9
+
+
+#define MAX_USERNAME_LEN 100
+#define MAX_PASSWORD_LEN 100
+#define MAX_DEFAULT_DB_NAME_LEN 64
+#define MAX_CLUSTER_NAME_LEN 100
+#define MAX_PRODUCT_NAME_LEN 100
+#define MAX_IP_LEN 20
+
+#define MAX_HOOK_NAME_LEN 128
+
+#define MAX_HOOK_SO 50
+
+#define MAX_HOOK_NUMS 5
+
+
+#define FTOK_PATH "./mpl"
+
+
+#define MAX_PROXY_STATUS_PACKET_LEN 10240
+
+#define MAX_LOG_DIR_LEN 128
+#define MAX_LOGFILE_NAME_LEN 128
+
+#define MAX_GROUP_LEN   50
+
+#define MAX_ZOOKEEPER_PATH_LEN 200
+#define ZOOKEEPER_RECV_TIMEOUT 30000
+#define ZK_LOCAL_CONF_FILE "mpl.conf"
+#define ZK_CONF_DIR_LEN 128
+#define ZK_LOG_FILE 128
+
+#define LOCAL_CONF_FILE "./conf/mpl.conf"
+#define MAX_CONF_ITEM_LEN  128
+
+#define MAX_FILE_NAME_LEN 128
+
+#define MAX_HOST_NAME_LEN 128
+
+#define ALARM_TIME 30
+#define MAX_PROC_PATH_LEN 30
+#define MAX_PROC_STATUS_LEN 128
+
+#define MAX_DB_USER_NUM 50
+#define MAX_DB_NUM 50
+#define MAX_PROC_CONN_LEN 100
+
+#define SERVER_MORE_RESULTS_EXISTS 8  
+#endif

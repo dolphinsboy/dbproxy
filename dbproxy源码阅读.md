@@ -530,6 +530,12 @@ typedef struct{
 t_logger *logger;
 ```
 
+从结构体上可以看出分为三类日志：
+
++ log
++ error log
++ load log
+
 日志对应的文件是:
 
 ```bash
@@ -537,6 +543,173 @@ log.h
 log.c
 ```
 
+**相关日志的demo，已经单独实现并放在github上**
+[https://github.com/dolphinsboy/code_for_c/tree/master/c_program/log](https://github.com/dolphinsboy/code_for_c/tree/master/c_program/log)
 
+ 函数实现主要包括如下几个函数:
+ 
+ ```c
+log_write
+log_check
+log_create
+log_close
+log_work
+ ```
+ 
+ **log_create**
+ 
++ 初始化logger结构体指针 
++ 通过my_fopen函数初始化三类日志文件
 
+**log_check**
 
++ 检查日志的状态，判断fd以及inode_t
++ 检查日志大小是否超过maxsize，如果超过，对日志文件进行rename
+
+**log_write**
+
++ 封装日志写入函数，主要是调用系统的IO 写入函数write
++ 通过变参数以及时间戳
++ 每次写入的时候都会进行size的大小检查
+
+**log_close**
+
++ 释放分配的内存空间
++ 关闭分配的fd文件描述符
+
+**log_work**
+
++ 结合具体的业务写入日志
++ 例如SQL命令的写入日志
+
+```sql
+void log_work(t_logger *logger, network_socket *client, int type)
+```
+这个是network_socket的客户端进行绑定，记录所有执行的SQL日志信息。
+
+####2.5 创建网络套接字 network\_socket\_pool_create
+
+```c
+network_socket_pool *sockets_pool
+
+srv->sockets_pool = network_socket_pool_create())
+```
+
+返回的结构体network_socket_pool，包括如下成员：
+
+```c
+typedef struct _network_socket_pool {
+    GQueue *sockets;
+    network_server *srv;
+} network_socket_pool;
+```
+包括两个成员：
+
++ GQueue是Glib库的结构体
++ network_server
+
+**最重要的server结构体，network_server包括如下成员：**
+
+```c
+typedef struct _network_server network_server
+
+struct _network_server {
+
+    network_server_config *config;
+    //在上面已经进行初始化
+    //srv->config = get_network_server_config(conf_path)
+    
+    network_socket *listen_socket;
+
+    struct timeval cur_time;
+
+    poll *poll;
+    network_socket_pool *sockets_pool;
+
+    status_user_and_ip *s1;
+    status_user_and_ip *child_s1;
+    int s1_num;
+
+    status_dbip_and_user *s2;
+    status_dbip_and_user *child_s2;
+    int s2_num;
+
+    status_mysql_proxy_layer *s3;
+    status_mysql_proxy_layer *child_s3;
+    int s3_num;
+    status_mmap_flag *s4;
+    status_mmap_flag *child_s4;
+    int s4_num;
+};
+```
+
+**network_socket结构体, 最重要的结构体之一,如下列出一些成员**
+
+```c
+typedef struct _network_socket network_socket;
+
+/**
+ * @brief 对来自客户端的连接和从proxy到数据库的连接进行了封装
+ */
+struct _network_socket {
+     ......
+    /**< IP */
+    char ip[20];
+    /**< 端口 */
+    int port;
+    ......
+        network_server *srv;
+    /**< 与此连接对应的数据库服务器 */
+    network_database *db;
+    /**< 指向poll结构体的指针 */
+    poll *poll;
+    ......
+        /**< result数据包 */
+    packet_result result;
+    /**< 对应的业务端用户名 */
+    product_user *p_user;
+    /**< 当前处理的请求 */
+    packet_query query;
+    ......
+        /**< 对应的业务端连接 */
+    network_socket *client;
+    /**< 对应的数据库连接 */
+    network_socket *server;
+    /**< 当前使用的数据库名字 */
+    char current_db[MAX_DEFAULT_DB_NAME_LEN];
+    /**< 对应的用户名和ip，用于状态查询命令 */
+    char username_and_ip[MAX_STATUS_TYPE_1_KEY];
+    /**< 通过用户名和ip哈希出来的值 */
+    ......
+}
+
+```
+
+**network\_socket\_pool\_create 进行初始化**
+
+```c
+network_socket_pool *pool;
+pool = calloc(1, sizeof(network_socket_pool)))
+pool->sockets = g_queue_new()
+```
+
+**截止到现在net相关的server初始化完成**
+
+###3、init\_signal_handlers（信号量相关）
+
+```c
+void init_signal_handlers() {
+    signal(SIGPIPE, SIG_IGN);
+    signal(SIGINT,  SIG_IGN);
+    signal(SIGHUP,  SIG_IGN);
+    signal(SIGUSR1, SIG_IGN);
+    signal(SIGUSR2, SIG_IGN);
+}
+```
+
+###4、network\_server\_start
+
+```c
+int network_server_start(network_server *srv)
+
+```
