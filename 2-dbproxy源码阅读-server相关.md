@@ -140,6 +140,7 @@ s->srv = pool->srv;
 ```
 
 mmap，buffered I/O, mmap, direct I/O 在I/O stack中的位置
+
 ![img](./IO相关.png)
 
 mmap函数相关解释：
