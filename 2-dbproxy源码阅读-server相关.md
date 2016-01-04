@@ -19,7 +19,7 @@ void init_signal_handlers() {
 ###2、network\_server\_start
 
 **基本TCP客户/服务器程序的套接字函数**
-![./tcp](tcp-client&server arch.png)
+![./tcp](./img/tcp-client&server arch.png)
 
 上面这个结构对这块代码有很好理解作用。
 
@@ -141,7 +141,7 @@ s->srv = pool->srv;
 
 mmap，buffered I/O, mmap, direct I/O 在I/O stack中的位置
 
-![img](./IO相关.png)
+![img](./img/IO相关.png)
 
 mmap函数相关解释：
 
