@@ -561,6 +561,14 @@ log_work
 + 初始化logger结构体指针 
 + 通过my_fopen函数初始化三类日志文件
 
+```c
+//logfile打开模式
+ O_RDWR | O_APPEND | O_CREAT
+//logfile的权限
+ S_IROTH | S_IRGRP | S_IRUSR | S_IWUSR
+ 644 
+```
+
 **log_check**
 
 + 检查日志的状态，判断fd以及inode_t
@@ -695,3 +703,33 @@ pool->sockets = g_queue_new()
 
 **截止到现在net相关的server初始化完成**
 
+###3、字符集
+
+[https://github.com/julienschmidt/gmysql/blob/master/collations.go](https://github.com/julienschmidt/gmysql/blob/master/collations.go)
+
+原来是通过下面的SQL语句获取到的
+
+``` sql
+SELECT COLLATION_NAME, ID FROM information_schema.COLLATIONS order by id;
+```
+
+```sql
+mysql> SELECT COLLATION_NAME, ID FROM information_schema.COLLATIONS 
+where COLLATION_NAME like 'utf8%';
+
++--------------------------+-----+
+| COLLATION_NAME           | ID  |
++--------------------------+-----+
+| utf8_general_ci          |  33 |
+| utf8_bin                 |  83 |
+| utf8_unicode_ci          | 192 |
+| utf8_icelandic_ci        | 193 |
+| utf8_latvian_ci          | 194 |
+| utf8_romanian_ci         | 195 |
+| utf8_slovenian_ci        | 196 |
+| utf8_polish_ci           | 197 |
+| utf8_estonian_ci         | 198 |
+| utf8_spanish_ci          | 199 |
+| utf8_swedish_ci          | 200 |
+
+```

@@ -145,7 +145,88 @@ mmap，buffered I/O, mmap, direct I/O 在I/O stack中的位置
 
 mmap函数相关解释：
 
-+ [http://kenby.iteye.com/blog/1164700](http://kenby.iteye.com/blog/1164700)
++ [mmap 详解](http://kenby.iteye.com/blog/1164700)
 + [http://myasuka.com/mmap-use/](http://myasuka.com/mmap-use/)
+
+
+**构建mmap用于父子进程之间共享**：
+
+```c
+    srv->s1 = (status_user_and_ip*) mmap(NULL, sizeof(status_user_and_ip)
+      * CONFIG_STATUS_MAX_PRODUCTUSER_NUM * CONFIG_STATUS_MAX_IP_NUM
+      * srv->config->max_threads, PROT_READ | PROT_WRITE, MAP_SHARED
+      | MAP_ANONYMOUS, -1, 0);
+
+    srv->s2 = (status_dbip_and_user*) mmap(NULL, sizeof(status_dbip_and_user)
+    * CONFIG_STATUS_MAX_PRODUCTUSER_NUM * CONFIG_STATUS_MAX_IP_NUM
+     * CONFIG_STATUS_MAX_DB_NUM * srv->config->max_threads, PROT_READ
+    | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+
+    srv->s3 = (status_mysql_proxy_layer*) mmap(NULL,
+    sizeof(status_mysql_proxy_layer) * srv->config->max_threads,
+    PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+
+    srv->s4 = (status_mmap_flag*) mmap(NULL,
+    sizeof(status_mmap_flag) * srv->config->max_threads,
+    PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+```
+
+```
+
+主进程和一个子进程有
+status_user_and_ip  装了与用户名+ip相关的状态查询内容
+status_dbip_and_user  装了与数据库IP和用户名相关的状态查询内容   
+status_mysql_proxy_layer 封装了与MySQL Proxy Layer本身相关的状态查询内容
+status_mmap_flag 
+```
+
+
+**创建工作线程**
+
+```c
+pid_t pids[srv->config->max_threads + 1];
+
+for (pnum = 0; pnum < srv->config->max_threads; pnum++) {
+	child_pid = child_make(pnum, listen_socket, srv,0);
+	pids[pnum] = child_pid;
+}
+
+pid_t child_make(int pnum,
+				   network_socket *listen_socket, 
+				   network_server *srv,int is_zoo) {
+    pid_t pid; 
+    if (0 < (pid = fork())) {
+        return pid; 
+    }    
+    if(is_zoo == 0){
+        child_main(pnum, listen_socket, srv);
+    } else {
+        zk_process(pnum, listen_socket, srv);
+    }    
+    return 0;
+}
+	
+```
+
+**对于不使用zookeeper的方式(child_main)**
+
+```c
+poll = poll_create()
+poll_events_add(poll, listen_socket, EPOLLIN)
+
+while (1) {
+	int fd_cnt = epoll_wait(epfd, events, event_size, EPOLL_TIMEOUT)
+	
+	if (1 == s->is_client_socket) { 
+		process_ready_client_network_socket(srv, s, poll);
+	}else{
+		process_ready_server_network_socket(srv, s, poll);
+	}
+}
+
+```
+
+**Epoll-IO多路复用**
+[Linux IO模式及 select、poll、epoll详解](https://segmentfault.com/a/1190000003063859)
 
 
