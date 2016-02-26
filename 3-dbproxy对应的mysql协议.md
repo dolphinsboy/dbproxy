@@ -4,10 +4,6 @@
 
 [MySQL协议:建立Socket连接](https://github.com/guimingyue/guimingyue.github.io/blob/00628bf867e014796012970cb52b8e711d4205d5/_posts/2015-04-08-mysql_protocol_connect.md)
 
-[通过wireshark分析的MySQL协议的demo](https://github.com/siddontang/mixer/blob/master/doc/protocol.txt)
-
-![mysql_packet](./img/mysql_packet.png)
-
 在函数process\_ready\_client\_network\_socket中第一个步骤是和mysql构建连接，这里面涉及到mysql soket通信协议。
 
 
@@ -60,12 +56,16 @@
 
 packet_handshake是按照mysql socket V10版本通信协议来的。
 
-<font color='green'>**方向**</font>
+<font color='green'>**分析方向**</font>
 
 这里是client的socket，是发给连接上来的客户端的。
 可以通过模拟登陆mysql的情况，在connect的mysql之后，mysql的server发过来的包。
 
-**[初始化握手报文](http://dev.mysql.com/doc/internals/en/connection-phase-packets.html#packet-Protocol::Handshake)**
+[通过wireshark分析的MySQL协议的demo](https://github.com/siddontang/mixer/blob/master/doc/protocol.txt)
+
+![mysql_packet](./img/mysql_packet.png)
+
+下面是这个payload的结构，**[初始化握手报文](http://dev.mysql.com/doc/internals/en/connection-phase-packets.html#packet-Protocol::Handshake)**：
 
 ```
 1              [0a] protocol version
