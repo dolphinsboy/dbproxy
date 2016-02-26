@@ -6,7 +6,7 @@
 
 [通过wireshark分析的MySQL协议的demo](https://github.com/siddontang/mixer/blob/master/doc/protocol.txt)
 
-![mysql_packet](../img/mysql_packet.png)
+![mysql_packet](./img/mysql_packet.png)
 
 在函数process\_ready\_client\_network\_socket中第一个步骤是和mysql构建连接，这里面涉及到mysql soket通信协议。
 
