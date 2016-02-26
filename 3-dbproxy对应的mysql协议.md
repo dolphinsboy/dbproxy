@@ -1,7 +1,12 @@
 ### 1、MySQL Socket协议
 
+####1、1 MySQL的Server发给Client的协议包解析
+
 [MySQL协议:建立Socket连接](https://github.com/guimingyue/guimingyue.github.io/blob/00628bf867e014796012970cb52b8e711d4205d5/_posts/2015-04-08-mysql_protocol_connect.md)
 
+[通过wireshark分析的MySQL协议的demo](https://github.com/siddontang/mixer/blob/master/doc/protocol.txt)
+
+![mysql_packet](../img/mysql_packet.png)
 
 在函数process\_ready\_client\_network\_socket中第一个步骤是和mysql构建连接，这里面涉及到mysql soket通信协议。
 
@@ -89,7 +94,7 @@ string[NUL]    auth-plugin name
 
 **连接mysql的代码**
 
-使用下面的C语言代码，完成连接mysql的协议解析：
+使用下面的C语言代码[connect_mysql](https://github.com/dolphinsboy/dbproxy/tree/master/connect_mysql)，完成连接mysql的协议解析：
 
 ```
 connect result:0
@@ -162,7 +167,7 @@ if __name__ == '__main__':
 VLWT|4/.7k7n
 [guosong@dev-00 code]$ ./conver.py "\x2f\x55\x3e\x74" 
  "\x50\x72\x6d\x4b"         
-                      
+                   
 /U>tPrmK
 ```
 
@@ -172,3 +177,7 @@ VLWT|4/.7k7n
 N
 5.6.27-logmC`;D$'6y-
 ```
+
+####1、2 MySQL的Client回复给Sever的协议包解析
+
+4.1+ clients  使用HandshakeResponse41协议回复Server的数据包。
