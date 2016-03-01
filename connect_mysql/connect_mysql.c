@@ -1,24 +1,26 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
-#include <strings.h>
+#include <string.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <mysql.h>
 #include <mysql_com.h>
+#include "array.h"
+#include "passwd.h"
 
-typedef struct _HandshakeV10Packet_T{
+typedef struct _HandshakeV10Packet{
     int protocolVersion;
     char serverVersion[10];
     int connectionId;
-    char authPluginData[9];
+    unsigned char authPluginData[8];
     int capability;
     int characterSet;
     int statusFlag;
-    char authPluginData2[64];
+    unsigned char authPluginData2[13];
     char authPluginName[64];
-}HandshakeV10Packet_T;
+}HandshakeV10Packet;
 
 void readNullEndStr(char *body, char *p_str, int index){
     int j=0;
@@ -57,7 +59,7 @@ int readFixShort(char *body, int index){
     return val;
 }
 
-void buildHandshakePacket(char *body, HandshakeV10Packet_T* packet){
+void buildHandshakePacket(char *body, HandshakeV10Packet* packet){
 
     int index = 4;
     int authPluginDataLen = 0;
@@ -129,13 +131,24 @@ void buildHandshakePacket(char *body, HandshakeV10Packet_T* packet){
     }
 }
 
-void print_packet(HandshakeV10Packet_T *packet){
+void print_packet(HandshakeV10Packet *packet){
 
     printf("ProtocolVersion= %d\n",packet->protocolVersion);
     printf("ServerVersion  = %s\n", packet->serverVersion);
     printf("ConnectionId   = %d\n", packet->connectionId);
-    printf("Auth-plugin-data-part-1 = %s\n", packet->authPluginData);
-    printf("Auth-plugin-data-part-2 = %s\n", packet->authPluginData2);
+    printf("Auth-plugin-data-part-1 = %s, size = %d\n", packet->authPluginData, sizeof(packet->authPluginData));
+
+    int k;
+
+    for(k = 0; k < 8;k++)
+        printf("%x", packet->authPluginData[k]);
+    printf("\n");
+    printf("Auth-plugin-data-part-2 = %s, size = %d\n", packet->authPluginData2, sizeof(packet->authPluginData2));
+
+    for(k = 0; k<12; k++)
+        printf("%x", packet->authPluginData2[k]);
+    printf("\n");
+
     printf("Auth-plugin-name = %s\n", packet->authPluginName);
 
 }
@@ -149,8 +162,10 @@ int main(){
     struct sockaddr_in client_addr;
     socklen_t sock_len;
 
-    HandshakeV10Packet_T *packet;
-    packet = malloc(sizeof(HandshakeV10Packet_T));
+    byte_array *arr;
+
+    HandshakeV10Packet *packet;
+    packet = malloc(sizeof(HandshakeV10Packet));
 
     bzero(&client_addr, sizeof(client_addr));
 
@@ -182,6 +197,29 @@ int main(){
     printf("\n");
 
     print_packet(packet);
+
+    //生成返回packet
+
+    arr = byte_array_sized_new(128);
+
+
+
+    //根据server返回的随机字符串以及密码生成sha1加密字符串
+    unsigned char scramble_password[21];
+    unsigned char random_key[21];
+    memcpy(random_key, packet->authPluginData, 8);
+    memcpy(random_key+8, packet->authPluginData2, 13);
+    
+    *scramble_password = '\x14';
+    scramble(scramble_password+1,random_key, "test123");
+
+    int k;
+    for(k=0; k < 21;k++)
+        printf("%0x", scramble_password[k]);
+    printf("\n");
+
+    
+
 
     return 0;
 
