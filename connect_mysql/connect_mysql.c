@@ -218,9 +218,6 @@ int main(){
         printf("%0x", scramble_password[k]);
     printf("\n");
 
-    
-
-
     return 0;
 
 }

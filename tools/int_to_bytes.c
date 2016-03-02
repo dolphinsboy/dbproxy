@@ -13,5 +13,16 @@ int main(){
     printf("int size = %d\n", sizeof(int));
     printf("short int size = %d\n", sizeof(short int));
 
+    unsigned char buf2[5];
+
+    char *p = "root";
+    memcpy(buf2,(void*)p, 5);
+
+    int i=0;
+
+    for(i = 0; i < sizeof(buf2); i++)
+        printf("\\x%02x", buf2[i]);
+    printf("\n");
+
     return 0;
 }
