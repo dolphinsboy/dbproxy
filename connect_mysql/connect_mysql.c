@@ -153,16 +153,57 @@ void print_packet(HandshakeV10Packet *packet){
 
 }
 
+void buildHandshakeResponse41(HandshakeV10Packet *packet, byte_array* arr){
+    //capability flags, CLIENT_PROTOCOL_41 always set
+    int capability = 1 | 4 | 512 | 8192 | 32768;
+    byte_array_append_len(arr, (void *)(&capability), 4);
+
+    //max-packet size
+    int max_packet_size = 1 << 24;
+    byte_array_append_len(arr, (void *)(&max_packet_size), 4);
+
+    //charset set,utf8_general_ci
+    unsigned char charset_set = 33;
+    byte_array_append_len(arr, (void *)(&charset_set), 1);
+
+    //reserved 23
+    unsigned char reserved[23];
+    memset(reserved, 0, sizeof(reserved));
+    byte_array_append_len(arr, reserved, 23);
+
+    //username
+    char *p = "test";
+    byte_array_append_len(arr, p, strlen(p));
+
+    char end = '\x00';
+    byte_array_append_len(arr, (void*)(&end), 1);
+
+    //根据server返回的随机字符串以及密码生成sha1加密字符串
+    unsigned char scramble_password[21];
+    unsigned char random_key[21];
+    memcpy(random_key, packet->authPluginData, 8);
+    memcpy(random_key+8, packet->authPluginData2, 13);
+    
+    *scramble_password = '\x14';
+    scramble(scramble_password+1,random_key, "test123");
+
+    byte_array_append_len(arr, scramble_password, 21);
+
+    //byte_array_append_len(arr, (void*)(&end), 1);
+}
+
 int main(){
     int socketfd;
     int ret;
     int n;
     char buf[128];
     int i;
+    unsigned char sequence;
     struct sockaddr_in client_addr;
     socklen_t sock_len;
 
     byte_array *arr;
+    byte_array *response_arr;
 
     HandshakeV10Packet *packet;
     packet = malloc(sizeof(HandshakeV10Packet));
@@ -190,6 +231,9 @@ int main(){
     printf("connect result:%d\n", ret);
     n = recv(socketfd, buf, 128, 0);
 
+    //sequence
+    sequence = (unsigned char)(buf[3]) + 1;
+
     buildHandshakePacket(buf, packet);
 
     for(i = 0; i < n; i++)
@@ -199,23 +243,36 @@ int main(){
     print_packet(packet);
 
     //生成返回packet
-
     arr = byte_array_sized_new(128);
+    buildHandshakeResponse41(packet, arr);
 
+    //包头
+    response_arr = byte_array_sized_new(256);
 
+    short response_packet_len = arr->size + 4;
+    byte_array_append_len(response_arr, (void *)(&response_packet_len), 2);
+    unsigned char re = 0;
+    byte_array_append_len(response_arr, (void *)(&re), 1);
+    byte_array_append_len(response_arr, (void *)(&sequence), 1);
 
-    //根据server返回的随机字符串以及密码生成sha1加密字符串
-    unsigned char scramble_password[21];
-    unsigned char random_key[21];
-    memcpy(random_key, packet->authPluginData, 8);
-    memcpy(random_key+8, packet->authPluginData2, 13);
-    
-    *scramble_password = '\x14';
-    scramble(scramble_password+1,random_key, "test123");
+    byte_array_append_len(response_arr, arr->data, arr->size);
 
-    int k;
-    for(k=0; k < 21;k++)
-        printf("%0x", scramble_password[k]);
+    for(i = 0; i < response_arr->size; i++)
+        printf("\\x%02x", response_arr->data[i]);
+    printf("\n");
+
+    //发送响应包
+    n = write(socketfd, response_arr->data, response_arr->size);
+    //n = write(socketfd, arr->data, arr->size);
+
+    //读取server的验证
+    memset(buf, 0, sizeof(buf));
+    n = read(socketfd, buf, 128);
+
+    printf("read_n = %d\n", n);
+
+    for(i = 0; i < n;i++)
+        printf("\\x%02x",buf[i]);
     printf("\n");
 
     return 0;
